@@ -1,0 +1,70 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String          @id @default(uuid())
+  email        String          @unique
+  passwordHash String
+  createdAt    DateTime        @default(now())
+  profile      CreatorProfile?
+}
+
+model CreatorProfile {
+  id            String       @id @default(uuid())
+  userId        String       @unique
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  followerCount Int          @default(0)
+  niche         String
+  country       String
+  language      String
+  createdAt     DateTime     @default(now())
+  videos        Video[]
+  dnaRecords    CreatorDNA[]
+
+  @@index([niche, country])
+}
+
+model Video {
+  id              String        @id @default(uuid())
+  creatorId       String
+  creator         CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  platformVideoId String
+  publishTime     DateTime
+  createdAt       DateTime      @default(now())
+  metrics         VideoMetrics?
+}
+
+model VideoMetrics {
+  id             String   @id @default(uuid())
+  videoId        String   @unique
+  video          Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  views          Int      @default(0)
+  likes          Int      @default(0)
+  comments       Int      @default(0)
+  shares         Int      @default(0)
+  saves          Int      @default(0)
+  watchTime      Float    @default(0.0)
+  completionRate Float    @default(0.0)
+  retentionData  Json     @default("{}")
+  status         String   @default("active")
+  createdAt      DateTime @default(now())
+}
+
+model CreatorDNA {
+  id              String         @id @default(uuid())
+  creatorId       String
+  creator         CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  traitName       String
+  traitValue      String
+  confidenceScore Float          @default(0.0)
+  sampleSize      Int            @default(0)
+  updatedAt       DateTime       @updatedAt
+
+  @@index([creatorId, traitName])
+}

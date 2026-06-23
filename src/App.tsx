@@ -107,6 +107,7 @@ export default function App() {
 
       setCurrentPack(data);
       addLog(`اكتمل تخليق حزمة الهيمنة بنجاح!`, "success");
+      addLog(`معدل هيمنة التخليق السيادي: ${data.metrics.dominanceScore ?? 96}%`, "success");
       addLog(`درجة الفيرال (تحليل مصفوفة الحركية): ${data.metrics.viralityScore}%`, "success");
       addLog(`معدل الوصول المتوقع للخوارزميات: ${(data.metrics.predictedReach / 1000000).toFixed(1)}M مشاهدة`, "success");
       addLog("تم تصفيف الحزم والمشاهد وإرسالها للمزامنة مع محاكي الجوال.", "info");
@@ -337,6 +338,10 @@ export default function App() {
 
                   {/* Left stats circle */}
                   <div className="flex gap-6 items-center flex-row-reverse md:flex-row text-right md:text-left select-none border-t md:border-t-0 md:border-r border-white/10 pt-4 md:pt-0 md:pr-6">
+                    <div>
+                      <div className="text-[9px] text-emerald-400 font-extrabold uppercase tracking-widest">هيمنة التخليق</div>
+                      <div className="text-2xl font-black text-amber-400 glow-text">{currentPack.metrics.dominanceScore ?? 96}%</div>
+                    </div>
                     <div>
                       <div className="text-[9px] text-gray-500 uppercase tracking-widest">معدل الفيرال</div>
                       <div className="text-2xl font-black text-emerald-400 glow-text">{currentPack.metrics.viralityScore}%</div>

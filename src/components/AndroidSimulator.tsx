@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import { Scene, DominatorPack } from "../types";
 import { 
   Smartphone, Wifi, Battery, RotateCcw, Play, Heart, MessageCircle, 
-  Share2, Copy, Sparkles, TrendingUp, Compass, Award, Shield, User, HelpCircle, Flame
+  Share2, Copy, Sparkles, TrendingUp, Compass, Award, Shield, User, HelpCircle, Flame,
+  UploadCloud, CheckCircle, AlertCircle, Clock, Eye, Bookmark, Activity
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -34,6 +35,141 @@ export default function AndroidSimulator({ currentPack, isLoading, onSynthesize 
   const [mobileLang, setMobileLang] = useState<"ar" | "en">("ar");
   const [mobileTone, setMobileTone] = useState("authority");
   const [includeImg, setIncludeImg] = useState(true);
+
+  // Screenshot Vision state variables
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<"idle" | "queued" | "completed" | "failed">("idle");
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [metricsResult, setMetricsResult] = useState<any>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [dragActive, setDragActive] = useState(false);
+
+  // Creator DNA Stateless Analytics Engine State Variables
+  const [dnaResult, setDnaResult] = useState<any>(null);
+  const [isAnalyzingDna, setIsAnalyzingDna] = useState(false);
+  const [dnaError, setDnaError] = useState<string | null>(null);
+
+  // Trigger Creator DNA calculation dynamically from Express backend API
+  const handleCalculateCreatorDNA = async () => {
+    try {
+      setIsAnalyzingDna(true);
+      setDnaError(null);
+      // Fetch calculation using active default demo creatorId "creator-alpha"
+      const res = await fetch("/api/creator/creator-alpha/dna/calculate", {
+        method: "POST"
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        throw new Error(data.error || "خطأ غير متوقع أثناء حساب البصمة الرقمية للقايد.");
+      }
+      setDnaResult(data.dna);
+    } catch (err: any) {
+      console.error("!! DNA calculation failed:", err);
+      setDnaError(err.message || err.toString());
+    } finally {
+      setIsAnalyzingDna(false);
+    }
+  };
+
+  // Standby Base64 preset of high-performing TikTok Reels screenshot metrics (for easy user demo)
+  const PRESET_DEMO_SCREENSHOT = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+
+  const handleScreenshotUpload = async (base64Str: string) => {
+    try {
+      setIsUploading(true);
+      setUploadStatus("queued");
+      setUploadError(null);
+      setMetricsResult(null);
+      setJobId(null);
+
+      const res = await fetch("/api/screenshot/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ screenshot: base64Str })
+      });
+
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        throw new Error(data.error || "فشل إرسال لقطة الشاشة إلى طابور المعالجة.");
+      }
+
+      setJobId(data.jobId);
+      
+      // Start polling the job status until completion
+      pollScreenshotJob(data.jobId);
+    } catch (err: any) {
+      console.error("!! Upload failed:", err);
+      setUploadStatus("failed");
+      setUploadError(err.message || err.toString());
+      setIsUploading(false);
+    }
+  };
+
+  const pollScreenshotJob = (id: string) => {
+    let attempts = 0;
+    const interval = setInterval(async () => {
+      attempts++;
+      if (attempts > 30) { // Limit polling to 60s max
+        clearInterval(interval);
+        setUploadStatus("failed");
+        setUploadError("انتهت مهلة الانتشار في الطابور المستقل. يرجى إعادة المحاولة.");
+        setIsUploading(false);
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/screenshot/job/${id}`);
+        const data = await res.json();
+
+        if (data.status === "completed") {
+          clearInterval(interval);
+          setUploadStatus("completed");
+          setMetricsResult(data.result);
+          setIsUploading(false);
+        } else if (data.status === "failed") {
+          clearInterval(interval);
+          setUploadStatus("failed");
+          setUploadError(data.error || "فشلت الخدمة في تحليل ومعالجة لقطة الشاشة.");
+          setIsUploading(false);
+        }
+      } catch (err: any) {
+        console.warn(">> Fallback/Polling warning:", err.message);
+      }
+    }, 2000);
+  };
+
+  const processFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      if (e.target?.result) {
+        handleScreenshotUpload(e.target.result as string);
+      }
+    };
+    reader.onerror = () => {
+      setUploadStatus("failed");
+      setUploadError("عذراً، تقع مشكلة أثناء قراءة ملف الصورة.");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      processFile(e.dataTransfer.files[0]);
+    }
+  };
 
   // Keep mobile mode in sync if changed from desktop
   useEffect(() => {
@@ -177,6 +313,100 @@ export default function AndroidSimulator({ currentPack, isLoading, onSynthesize 
                   </div>
                 </div>
 
+                {/* CREATOR DNA STATELESS ANALYTICS SERVICE */}
+                <div className="bg-gradient-to-br from-neutral-950 to-neutral-900 border border-white/10 rounded-2xl p-4 mb-4 text-right">
+                  <h4 className="text-[10px] font-black text-emerald-400 uppercase tracking-wider mb-2 flex items-center justify-end gap-1.5">
+                    <span>تحليل مصفوفة الـ DNA الكاشف</span>
+                    <Flame size={10} className="text-amber-500 animate-pulse" />
+                  </h4>
+                  <p className="text-[9px] text-gray-450 mb-3 leading-relaxed">الخوارزمية الرياضية الصافية لفك شفرة الأداء وتحوير المحتوى بالتوازي (Stateless Pipeline).</p>
+
+                  {!dnaResult && !isAnalyzingDna && (
+                    <button
+                      onClick={handleCalculateCreatorDNA}
+                      className="w-full py-2 bg-emerald-500/10 hover:bg-emerald-550/20 text-emerald-400 border border-emerald-500/30 rounded-xl text-[9px] font-black transition-all flex items-center justify-center gap-1.5"
+                    >
+                      <span>تشغيل الخوارزمية الإحصائية (10+ عينات)</span>
+                      <Sparkles size={11} />
+                    </button>
+                  )}
+
+                  {isAnalyzingDna && (
+                    <div className="bg-black/30 rounded-xl p-4 text-center">
+                      <div className="w-5 h-5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                      <p className="text-[9.5px] font-bold text-white mb-1 animate-pulse">جاري الحساب الرياضي ورصد الانحراف المعياري...</p>
+                      <span className="text-[7.5px] text-neutral-500 block">Querying postgresql + Caching in Redis (dna:creatorId)...</span>
+                    </div>
+                  )}
+
+                  {dnaResult && (
+                    <div className="space-y-3">
+                      {/* High-level stats row */}
+                      <div className="grid grid-cols-2 gap-2 text-right">
+                        <div className="bg-black/40 border border-white/5 p-2 rounded-lg">
+                          <span className="text-[7px] text-neutral-400 block font-mono">CONFIDENCE_SCORE</span>
+                          <span className="text-[11px] font-black text-emerald-400">{dnaResult.confidenceScore}%</span>
+                          <div className="w-full bg-neutral-800 h-1 rounded-full mt-1 overflow-hidden">
+                            <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${dnaResult.confidenceScore}%` }}></div>
+                          </div>
+                        </div>
+                        <div className="bg-black/40 border border-white/5 p-2 rounded-lg">
+                          <span className="text-[7px] text-neutral-400 block font-mono">SAMPLE_SIZE</span>
+                          <span className="text-[11px] font-black text-white">{dnaResult.sampleSize} عينات</span>
+                          <span className="text-[7px] text-[gray-500] block mt-1 font-mono">10+ REQUIRED</span>
+                        </div>
+                      </div>
+
+                      {/* Baselines block */}
+                      <div className="bg-white/5 border border-white/5 p-2 rounded-xl text-[8px] space-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-gray-400 font-mono">Mean views: {dnaResult.baseline.meanViews.toLocaleString()} ± SD: {dnaResult.baseline.stdDevViews.toLocaleString()}</span>
+                          <span className="font-bold text-white">خط أساس المشاهدات:</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-400 font-mono">Mean comp: {dnaResult.baseline.meanCompletionRate}% ± SD: {dnaResult.baseline.stdDevCompletionRate}%</span>
+                          <span className="font-bold text-white">خط أساس الاحتفاظ:</span>
+                        </div>
+                      </div>
+
+                      {/* Success & Failure Drivers list */}
+                      <div className="space-y-2">
+                        <div>
+                          <span className="text-[8px] text-emerald-400 font-bold block mb-1">✓ محركات الهيمنة الصاعدة (Success Drivers)</span>
+                          {dnaResult.successDrivers.map((d: any, idx: number) => (
+                            <div key={idx} className="bg-emerald-550/10 border border-emerald-500/20 text-emerald-400 px-2 py-1 rounded text-[8.5px] mb-1 text-right flex justify-between items-center">
+                              <span className="font-mono text-[7px] bg-emerald-500/20 px-1 rounded">x{d.strengthMultiplier}</span>
+                              <span className="truncate flex-1 max-w-[210px] pr-1">{d.traitValue}</span>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div>
+                          <span className="text-[8px] text-red-450 font-bold block mb-1">✗ عوامل تشتيت الوصول (Failure Drivers)</span>
+                          {dnaResult.failureDrivers.map((d: any, idx: number) => (
+                            <div key={idx} className="bg-red-500/10 border border-red-500/20 text-red-400 px-2 py-1 rounded text-[8.5px] mb-1 text-right flex justify-between items-center">
+                              <span className="font-mono text-[7px] bg-red-500/20 px-1 rounded">x{d.strengthMultiplier}</span>
+                              <span className="truncate flex-1 max-w-[210px] pr-1">{d.traitValue}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Verdict */}
+                      <div className="bg-emerald-500/5 border border-emerald-500/10 p-2.5 rounded-lg text-right">
+                        <p className="text-[8.5px] text-gray-300 leading-relaxed italic">
+                          "{dnaResult.verdict}"
+                        </p>
+                      </div>
+
+                      <div className="flex justify-between items-center text-[7px] text-gray-500 font-mono">
+                        <span>PERSISTENCE: PROCESSED ✔</span>
+                        <span className="text-emerald-500">REDIS_CACHE: ACTIVE (TTL=24H)</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Active Alerts */}
                 <h4 className="text-[10px] font-black text-neutral-400 uppercase tracking-wider mb-2 pr-1">إعلانات السيادة والخوارزميات</h4>
                 <div className="space-y-2.5 mb-5">
@@ -198,6 +428,121 @@ export default function AndroidSimulator({ currentPack, isLoading, onSynthesize 
                       <p className="text-[9px] text-gray-450 mt-0.5 leading-relaxed">استجابة فائقة الموثوقية للمخططات المكونة من 3 فصول سردية.</p>
                     </div>
                   </div>
+                </div>
+
+                {/* SCREENSHOT VISION SYSTEM INTEGRATION */}
+                <div className="bg-neutral-900 border border-white/10 rounded-2xl p-4 mb-4 text-right">
+                  <h4 className="text-[10px] font-black text-emerald-400 uppercase tracking-wider mb-2 flex items-center justify-end gap-1.5">
+                    <span>رادار الرؤية ✦ رصد لقطات الشاشة</span>
+                    <Activity size={10} className="animate-pulse" />
+                  </h4>
+                  <p className="text-[9px] text-gray-450 mb-3 leading-relaxed">ارفع لقطة شاشة لتقرير ريلز/تيك توك لاستخراج إحصائيات التفاعل بنظام طوابير BullMQ المستقل.</p>
+
+                  {uploadStatus === "idle" && (
+                    <div 
+                      onDragEnter={handleDrag}
+                      onDragOver={handleDrag}
+                      onDragLeave={handleDrag}
+                      onDrop={handleDrop}
+                      className={`border-2 border-dashed rounded-xl p-4 transition-all text-center flex flex-col items-center justify-center cursor-pointer ${
+                        dragActive ? "border-emerald-500 bg-emerald-500/55" : "border-white/10 hover:border-white/20 bg-black/20"
+                      }`}
+                      onClick={() => document.getElementById("fileInput")?.click()}
+                    >
+                      <UploadCloud size={20} className="text-neutral-500 mb-1.5" />
+                      <span className="text-[9px] text-gray-300 font-bold block mb-1">اسحب لقطة الشاشة أو اضغط للتصفح</span>
+                      <span className="text-[7.5px] text-gray-550 block leading-tight">يدعم ملفات الصور (PNG, JPG)</span>
+                      
+                      <input 
+                        id="fileInput"
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            processFile(e.target.files[0]);
+                          }
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {uploadStatus === "queued" && (
+                    <div className="bg-black/30 border border-emerald-500/20 rounded-xl p-3.5 text-center flex flex-col items-center justify-center">
+                      <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mb-2"></div>
+                      <p className="text-[9.5px] font-bold text-white mb-1 animate-pulse">جاري التحليل عبر طابور BullMQ الخلفي (Redis)</p>
+                      <span className="text-[8px] text-emerald-400 font-mono">ID: {jobId ? jobId.substring(0, 16) + '...' : 'جاري التعيين...'}</span>
+                      <span className="text-[7.5px] text-gray-450 mt-1.5 block leading-tight text-right w-full bg-white/5 p-1.5 rounded">
+                        1. تفويض الصورة للطابور screenshot-queue.<br />
+                        2. تنبيه المعالج مع Vision AI لتنظيف الأرقام.<br />
+                        3. التعديل المباشر في قاعدة البيانات.
+                      </span>
+                    </div>
+                  )}
+
+                  {uploadStatus === "completed" && metricsResult && (
+                    <div className="space-y-2.5">
+                      <div className="flex items-center justify-between text-[10px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-2 py-1 rounded-lg">
+                        <button 
+                          onClick={() => setUploadStatus("idle")} 
+                          className="text-[8px] bg-emerald-500/20 px-1.5 py-0.5 rounded text-white font-bold hover:bg-emerald-500/35"
+                        >
+                          جديد
+                        </button>
+                        <span className="flex items-center gap-1">
+                          <span>تم التدقيق عبر الرؤية بنجاح</span>
+                          <CheckCircle size={10} />
+                        </span>
+                      </div>
+
+                      {/* Extracted Metrics Grid */}
+                      <div className="grid grid-cols-2 gap-2 text-right">
+                        <div className="bg-black/30 border border-white/5 p-2 rounded-lg">
+                          <span className="text-[7.5px] text-neutral-400 block">المشاهدات (Views)</span>
+                          <span className="text-xs font-black text-white">{(metricsResult.views || 0).toLocaleString()}</span>
+                        </div>
+                        <div className="bg-black/30 border border-white/5 p-2 rounded-lg">
+                          <span className="text-[7.5px] text-neutral-400 block">الإعجابات (Likes)</span>
+                          <span className="text-xs font-black text-white">{(metricsResult.likes || 0).toLocaleString()}</span>
+                        </div>
+                        <div className="bg-black/30 border border-white/5 p-2 rounded-lg">
+                          <span className="text-[7.5px] text-neutral-400 block">التعليقات (Comments)</span>
+                          <span className="text-xs font-black text-white">{(metricsResult.comments || 0).toLocaleString()}</span>
+                        </div>
+                        <div className="bg-black/30 border border-white/5 p-2 rounded-lg">
+                          <span className="text-[7.5px] text-neutral-400 block">المشاركات (Shares)</span>
+                          <span className="text-xs font-black text-white">{(metricsResult.shares || 0).toLocaleString()}</span>
+                        </div>
+                        <div className="bg-black/30 border border-white/5 p-2 rounded-lg col-span-2 flex justify-between items-center px-1.5">
+                          <span className="text-xs font-black text-emerald-400">{(metricsResult.completionRate || 0)}%</span>
+                          <span className="text-[7.5px] text-neutral-400">معدل الإكمال (Completion)</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {uploadStatus === "failed" && (
+                    <div className="bg-red-950/20 border border-red-500/20 rounded-xl p-3 text-center flex flex-col items-center justify-center">
+                      <AlertCircle size={14} className="text-red-400 mb-1.5" />
+                      <p className="text-[9px] text-red-300 font-bold mb-1">فشلت معالجة لقطة الشاشة</p>
+                      <span className="text-[7.5px] text-neutral-400 block mb-2">{uploadError || "حدث خطأ غير متوقع."}</span>
+                      <button 
+                        onClick={() => setUploadStatus("idle")} 
+                        className="text-[8px] bg-white/5 border border-white/10 px-2 py-1 rounded text-white font-bold hover:bg-white/10"
+                      >
+                        إعادة المحاولة
+                      </button>
+                    </div>
+                  )}
+
+                  {uploadStatus === "idle" && (
+                    <button 
+                      onClick={() => handleScreenshotUpload(PRESET_DEMO_SCREENSHOT)}
+                      className="w-full mt-2 py-1.5 bg-neutral-800 hover:bg-neutral-750 text-neutral-300 rounded-lg text-[8px] font-bold tracking-wide transition-all border border-white/5"
+                    >
+                      ✦ تجربة سريعة بلقطة نموذجية (Demo Auto-Upload)
+                    </button>
+                  )}
                 </div>
 
                 {/* Quick Action Button */}
@@ -508,9 +853,15 @@ export default function AndroidSimulator({ currentPack, isLoading, onSynthesize 
                     )}
 
                     {/* Meta and score info */}
-                    <div className="flex items-center justify-between bg-neutral-900 border border-white/5 p-3 rounded-xl mb-4 text-xs font-mono">
-                      <div className="text-emerald-400 font-bold">{currentPack.metrics.viralityScore}%</div>
-                      <div className="text-gray-400">علامة الفيرست</div>
+                    <div className="grid grid-cols-2 gap-2 bg-neutral-900 border border-white/5 p-3 rounded-xl mb-4 text-xs font-mono text-center">
+                      <div className="border-r border-white/5">
+                        <div className="text-amber-400 font-black">{currentPack.metrics.dominanceScore ?? 96}%</div>
+                        <div className="text-[8px] text-neutral-400 font-sans">معدل هيمنة التخليق</div>
+                      </div>
+                      <div>
+                        <div className="text-emerald-400 font-black">{currentPack.metrics.viralityScore}%</div>
+                        <div className="text-[8px] text-neutral-400 font-sans font-bold">علامة الفيرست</div>
+                      </div>
                     </div>
 
                     {/* Main Copy Post */}

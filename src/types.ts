@@ -9,6 +9,7 @@ export interface GenerationMetrics {
   viralityScore: number;
   predictedReach: number;
   sentiment: string;
+  dominanceScore?: number;
 }
 
 export interface DominatorPack {
