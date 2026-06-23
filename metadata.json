@@ -1,0 +1,10 @@
+{
+  "name": "Dominator V3",
+  "description": "TikTok-First Closed-Loop SaaS system for viral AI storyboard creation, reels synthesis, and audience growth analytics.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
